@@ -7,7 +7,7 @@ Date: 8 December, 2019
 Function: UI entry point for user
 """
 ## Import standard library modules
-import sys
+import os, sys
 
 ## Import PyGTK Modules
 import gi
@@ -64,14 +64,39 @@ class MainWindow(Gtk.Window):
         self.map.set_scale(40000)
         self.map.set_background_color('black')
 
+        ## Enable and setup drag and drop
+        self.connect('drag_data_received', self.on_drag_data_received)
+        self.drag_dest_set( Gtk.DestDefaults.MOTION | Gtk.DestDefaults.HIGHLIGHT | Gtk.DestDefaults.DROP, [Gtk.TargetEntry.new("text/uri-list", 0, 80)], Gdk.DragAction.COPY)
+
         ## Create layout, add MapView, and add layout to window
         self.layout = Gtk.VBox()
         self.layout.pack_start(self.map, True, True, 0)
         self.add(self.layout)
+    
+
+    def add_shapefile(self, path):
+        """ Adds a layer from a file (Rename to add_from_path) """
+        self.map.add_layer(VectorLayer.from_shapefile(path))
+
+
+    def on_drag_data_received(self, caller, context, x, y, selection, target_type, timestamp):
+        """ Drag and drop received slot """
+        ## Clean selection url string
+        selection_data = selection.get_data().decode("utf-8")
+        selection_data = selection_data.strip('\r\n\x00')
+        selection_data = selection_data.split('\r\n')
+
+        ## Add all shp files in selection_data
+        for url in selection_data:
+            path = url[7:] ## Strip file://
+            if path[-3:] == 'shp' and os.path.isfile(path):
+                ## Add shapefile to map
+                 self.add_shapefile(path)
+
 
 
 def main():
-    """ Main functions exists for multiple entry points (namely setup.py's console_scripts)"""
+    """ Main function exists to allow for multiple entry points (namely setup.py's console_scripts)"""
     ## Create MapViewerApplication instance
     app = MapViewerApplication()
 
@@ -79,7 +104,7 @@ def main():
     if len(sys.argv) > 1:
         for arg in list(sys.argv[1:]):
             ## Assume all args are a shapefile path (for now)
-            app.window.map.add_layer(VectorLayer.from_shapefile(arg))
+            app.window.add_shapefile(arg)
 
     ## Run Applications
     app.run()
