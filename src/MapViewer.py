@@ -8,6 +8,8 @@ Function: UI entry point for user
 """
 ## Import standard library modules
 import os, sys
+from random import randint
+from urllib.parse import urlparse, unquote
 
 ## Import PyGTK Modules
 import gi
@@ -15,8 +17,8 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Gio, GObject
 
 ## Import VectorLayer & MapCanvas
-from MapEngine import VectorLayer
-from MapCanvas import MapCanvas
+from PyMapKit import VectorLayer
+from MapCanvasGTK import MapCanvas
 
 
 class MapViewerApplication(Gtk.Application):
@@ -40,7 +42,7 @@ class MapViewerApplication(Gtk.Application):
 
 
 class MainWindow(Gtk.Window):
-    """ The main application window, hosts the MapView widget """
+    """ The main application window """
     def __init__(self):
         """ Defines window properties, & adds child widgets. """
         ## Initialize parents: Gtk.Window & Gtk.GObject
@@ -48,9 +50,9 @@ class MainWindow(Gtk.Window):
         GObject.GObject.__init__(self)
 
         ## Set own window properties
+        self.set_title("GeoSpatial Data Viewer")
         self.resize(1700, 900)
-        self.set_title("Map Viewer")
-        self.set_border_width(3)
+        self.set_border_width(0)
 
         ## Create widgets
         self.map = MapCanvas()
@@ -60,7 +62,7 @@ class MainWindow(Gtk.Window):
         #self.map.set_projection("EPSG:32023")
         #self.map.set_projection("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs")
 
-        self.map.set_location(-83.0, 40.0)
+        self.map.set_location(40.0, -83.0)
         self.map.set_scale(40000)
         self.map.set_background_color('black')
 
@@ -74,24 +76,32 @@ class MainWindow(Gtk.Window):
         self.add(self.layout)
     
 
-    def add_shapefile(self, path):
-        """ Adds a layer from a file (Rename to add_from_path) """
-        self.map.add_layer(VectorLayer.from_shapefile(path))
+    def add_from_path(self, path):
+        """ """
+        layer = VectorLayer(path)
+        
+        ## Set to random color
+        color_list = ['salmon', 'goldenrod', 'firebrick', 'steelblue', 'aquamarine', 'seagreen', 'powderblue', 'cornflowerblue', 'crimson', 'darkgoldenrod', 'chocolate', 'darkmagenta', 'darkolivegreen', 'darkturquoise', 'deeppink']
+        color = color_list[randint(0, len(color_list)-1)]
+        for f in layer: f.set_color(color)
 
+        self.map.add_layer(layer)
+        layer.focus()
 
     def on_drag_data_received(self, caller, context, x, y, selection, target_type, timestamp):
         """ Drag and drop received slot """
+
         ## Clean selection url string
         selection_data = selection.get_data().decode("utf-8")
         selection_data = selection_data.strip('\r\n\x00')
+        selection_data = selection_data.replace('file"//', '')
         selection_data = selection_data.split('\r\n')
-
+        
         ## Add all shp files in selection_data
         for url in selection_data:
-            path = url[7:] ## Strip file://
-            if path[-3:] == 'shp' and os.path.isfile(path):
-                ## Add shapefile to map
-                 self.add_shapefile(path)
+            path = unquote(urlparse(url).path)
+            self.add_from_path(path)
+            self.map.callRedraw(self)
 
 
 
@@ -104,7 +114,7 @@ def main():
     if len(sys.argv) > 1:
         for arg in list(sys.argv[1:]):
             ## Assume all args are a shapefile path (for now)
-            app.window.add_shapefile(arg)
+            app.window.add_from_path(arg)
 
     ## Run Applications
     app.run()
