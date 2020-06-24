@@ -26,7 +26,7 @@ class MapViewerApplication(Gtk.Application):
     def __init__(self):
         """ Opens MainWindow and connects signals & slots. """
         ## Set ID and flags, initialize Gtk Application parent.
-        app_id="apps.test.MapViewer"
+        app_id="apps.test.MapViewer." + str(randint(0, 1000))
         flags=Gio.ApplicationFlags.FLAGS_NONE
         Gtk.Application.__init__(self, application_id=app_id, flags=flags)
 
