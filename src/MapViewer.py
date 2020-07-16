@@ -11,13 +11,15 @@ import os, sys
 from random import randint
 from urllib.parse import urlparse, unquote
 
+from threading import Thread
+
 ## Import PyGTK Modules
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Gio, GObject
 
 ## Import VectorLayer & MapCanvas
-from PyMapKit import VectorLayer
+from PyMapKit import VectorLayer, RasterLayer, TileLayer
 from MapCanvasGTK import MapCanvas
 
 
@@ -26,7 +28,7 @@ class MapViewerApplication(Gtk.Application):
     def __init__(self):
         """ Opens MainWindow and connects signals & slots. """
         ## Set ID and flags, initialize Gtk Application parent.
-        app_id="apps.test.MapViewer." + str(randint(0, 1000))
+        app_id="apps.test.MapViewer.id" + str(randint(1,1000))
         flags=Gio.ApplicationFlags.FLAGS_NONE
         Gtk.Application.__init__(self, application_id=app_id, flags=flags)
 
@@ -58,12 +60,14 @@ class MainWindow(Gtk.Window):
         self.map = MapCanvas()
 
         #self.map.set_projection("EPSG:4326")
-        self.map.set_projection("EPSG:3857")
+        self.map.set_projection("EPSG:3857") ## <<== Map tiles
+        #self.map.set_projection("EPSG:3785")
         #self.map.set_projection("EPSG:32023")
+        #self.map.set_projection("EPSG:32617")  ## <<== Raster
         #self.map.set_projection("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs")
 
         self.map.set_location(40.0, -83.0)
-        self.map.set_scale(40000)
+        self.map.set_scale(76)
         self.map.set_background_color('black')
 
         ## Enable and setup drag and drop
@@ -73,9 +77,9 @@ class MainWindow(Gtk.Window):
         ## Create layout, add MapView, and add layout to window
         self.layout = Gtk.VBox()
         self.layout.pack_start(self.map, True, True, 0)
+        #self.layout.pack_start(Gtk.Entry(), False, True, 0)
         self.add(self.layout)
     
-
     def add_from_path(self, path):
         """ """
         layer = VectorLayer(path)
@@ -85,8 +89,27 @@ class MainWindow(Gtk.Window):
         color = color_list[randint(0, len(color_list)-1)]
         for f in layer: f.set_color(color)
 
-        self.map.add_layer(layer)
-        layer.focus()
+        layer.set_opacity(0.5)
+
+        '''
+        This code lets me add a new layer without GUI locking up
+        '''
+        def add_fn(layer):
+            self.map.add_layer(layer)
+            layer.focus()
+        
+        def thread_killer(t):
+            if t.is_alive() == False:
+                t.join()
+                self.map.call_redraw(self)
+            else:
+                GObject.idle_add(thread_killer, t)
+
+        thread = Thread(target = add_fn, args = (layer, ))
+        thread.start()
+        GObject.idle_add(thread_killer, thread)
+
+        #GObject.idle_add(add_fn, layer)
 
     def on_drag_data_received(self, caller, context, x, y, selection, target_type, timestamp):
         """ Drag and drop received slot """
@@ -101,7 +124,7 @@ class MainWindow(Gtk.Window):
         for url in selection_data:
             path = unquote(urlparse(url).path)
             self.add_from_path(path)
-            self.map.callRedraw(self)
+            self.map.call_redraw(self)
 
 
 
@@ -115,11 +138,20 @@ def main():
         for arg in list(sys.argv[1:]):
             ## Assume all args are a shapefile path (for now)
             app.window.add_from_path(arg)
+    
+    ## Add title layer
+    app.window.map.add_layer( TileLayer("https://a.tile.openstreetmap.org/{z}/{x}/{y}.png", blocking=False) )
+    #app.window.map.add_layer( RasterLayer("/home/ben/Downloads/LC08_L1TP_019033_20200607_20200625_01_T1/LC08_L1TP_019033_20200607_20200625_01_T1.tif", True))
+    #app.window.map.add_layer( TileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", blocking=False) )
+    ## Set to random color
+
 
     ## Run Applications
     app.run()
 
 ## If file run directly, call main functions
 if __name__ == "__main__":
+    ## Enable mutithreading
+    GObject.threads_init()
     main()
 
