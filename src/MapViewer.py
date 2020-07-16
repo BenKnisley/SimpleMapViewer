@@ -19,7 +19,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Gio, GObject
 
 ## Import VectorLayer & MapCanvas
-from PyMapKit import VectorLayer, TileLayer
+from PyMapKit import VectorLayer, RasterLayer, TileLayer
 from MapCanvasGTK import MapCanvas
 
 
@@ -28,7 +28,7 @@ class MapViewerApplication(Gtk.Application):
     def __init__(self):
         """ Opens MainWindow and connects signals & slots. """
         ## Set ID and flags, initialize Gtk Application parent.
-        app_id="apps.test.MapViewer"
+        app_id="apps.test.MapViewer.id" + str(randint(1,1000))
         flags=Gio.ApplicationFlags.FLAGS_NONE
         Gtk.Application.__init__(self, application_id=app_id, flags=flags)
 
@@ -60,9 +60,10 @@ class MainWindow(Gtk.Window):
         self.map = MapCanvas()
 
         #self.map.set_projection("EPSG:4326")
-        #self.map.set_projection("EPSG:3857")
-        self.map.set_projection("EPSG:3785")
+        self.map.set_projection("EPSG:3857") ## <<== Map tiles
+        #self.map.set_projection("EPSG:3785")
         #self.map.set_projection("EPSG:32023")
+        #self.map.set_projection("EPSG:32617")  ## <<== Raster
         #self.map.set_projection("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs")
 
         self.map.set_location(40.0, -83.0)
@@ -76,15 +77,9 @@ class MainWindow(Gtk.Window):
         ## Create layout, add MapView, and add layout to window
         self.layout = Gtk.VBox()
         self.layout.pack_start(self.map, True, True, 0)
-        self.layout.pack_start(Gtk.Entry(), False, True, 0)
+        #self.layout.pack_start(Gtk.Entry(), False, True, 0)
         self.add(self.layout)
     
-    def add_tile_layer(self):
-        print('Adding title layer')
-        #self.map.add_layer( TileLayer("https://a.tile.openstreetmap.org/{z}/{x}/{y}.png", blocking=False) )
-        #self.map.add_layer( TileLayer("https://cartodb-basemaps-1.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png", blocking=False) )
-        self.map.add_layer( TileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", blocking=False) )
-
     def add_from_path(self, path):
         """ """
         layer = VectorLayer(path)
@@ -145,7 +140,11 @@ def main():
             app.window.add_from_path(arg)
     
     ## Add title layer
-    app.window.add_tile_layer()
+    app.window.map.add_layer( TileLayer("https://a.tile.openstreetmap.org/{z}/{x}/{y}.png", blocking=False) )
+    #app.window.map.add_layer( RasterLayer("/home/ben/Downloads/LC08_L1TP_019033_20200607_20200625_01_T1/LC08_L1TP_019033_20200607_20200625_01_T1.tif", True))
+    #app.window.map.add_layer( TileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", blocking=False) )
+    ## Set to random color
+
 
     ## Run Applications
     app.run()
