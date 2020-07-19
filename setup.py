@@ -15,7 +15,7 @@ setup(
     license = "MIT",
     keywords = "GIS map MapEngine",
     install_requires=['numpy','pyproj'],
-    package_dir={'':'src'},
+    packages=["MapViewer",],
     long_description="...",
     entry_points = {
         'console_scripts': [
