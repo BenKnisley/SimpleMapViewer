@@ -71,11 +71,18 @@ class MainWindow(Gtk.Window):
         self.layout.pack_start(self.map, True, True, 0)
 
 
-        self.add(self.layout)
 
+        x = Gtk.Overlay()
+        x.add(self.layout)
+        e = Gtk.Entry()
+        e.set_valign(Gtk.Align.START)
+        e.set_halign(Gtk.Align.START)
+        e.set_margin_top(30)
+        e.set_margin_left(30)
+        x.add_overlay(e)
 
-
-        
+        self.add(x)
+        #self.add(self.layout)
 
         #self.layout.pack_start(Gtk.Entry(), False, True, 0)
         #self.add(self.layout)
