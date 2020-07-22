@@ -20,6 +20,7 @@ from gi.repository import Gtk, Gdk, Gio, GObject
 
 ## Import VectorLayer & MapCanvas
 from PyMapKit import VectorLayer, RasterLayer, TileLayer
+
 from MapCanvasGTK import MapCanvas
 
 
@@ -51,24 +52,15 @@ class MainWindow(Gtk.Window):
         Gtk.Window.__init__(self)
         GObject.GObject.__init__(self)
 
-        ## Set own window properties
+        ## Set properties
         self.set_title("GeoSpatial Data Viewer")
         self.resize(1700, 900)
         self.set_border_width(0)
 
-        ## Create widgets
+        ## Setup MapCanvas Widget
         self.map = MapCanvas()
-
-        #self.map.set_projection("EPSG:4326")
-        self.map.set_projection("EPSG:3857") ## <<== Map tiles
-        #self.map.set_projection("EPSG:3785")
-        #self.map.set_projection("EPSG:32023")
-        #self.map.set_projection("EPSG:32617")  ## <<== Raster
-        #self.map.set_projection("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs")
-
         self.map.set_location(40.0, -83.0)
         self.map.set_scale(76)
-        self.map.set_background_color('black')
 
         ## Enable and setup drag and drop
         self.connect('drag_data_received', self.on_drag_data_received)
@@ -77,19 +69,34 @@ class MainWindow(Gtk.Window):
         ## Create layout, add MapView, and add layout to window
         self.layout = Gtk.VBox()
         self.layout.pack_start(self.map, True, True, 0)
-        #self.layout.pack_start(Gtk.Entry(), False, True, 0)
+
+
         self.add(self.layout)
+
+
+
+        
+
+        #self.layout.pack_start(Gtk.Entry(), False, True, 0)
+        #self.add(self.layout)
     
     def add_from_path(self, path):
         """ """
-        layer = VectorLayer(path)
-        
-        ## Set to random color
-        color_list = ['salmon', 'goldenrod', 'firebrick', 'steelblue', 'aquamarine', 'seagreen', 'powderblue', 'cornflowerblue', 'crimson', 'darkgoldenrod', 'chocolate', 'darkmagenta', 'darkolivegreen', 'darkturquoise', 'deeppink']
-        color = color_list[randint(0, len(color_list)-1)]
-        for f in layer: f.set_color(color)
+        file_extension = path.split(".")[-1]
 
-        layer.set_opacity(0.5)
+        ## If Vector data, create a New Vector Layer
+        if file_extension in ('shp', 'geojson'): 
+            print("Adding Vector Layer")
+            layer = VectorLayer(path)
+            color_list = ['salmon', 'goldenrod', 'firebrick', 'steelblue', 'aquamarine', 'seagreen', 'powderblue', 'cornflowerblue', 'crimson', 'darkgoldenrod', 'chocolate', 'darkmagenta', 'darkolivegreen', 'darkturquoise', 'deeppink']
+            rand_color = color_list[randint(0, len(color_list)-1)]
+            for f in layer: f.set_color(rand_color)
+            layer.set_opacity(0.5)
+        
+        elif file_extension in ('geotiff'):
+            print("Adding Raster Layer")
+            layer = RasterLayer(path, True)
+
 
         '''
         This code lets me add a new layer without GUI locking up
@@ -113,7 +120,6 @@ class MainWindow(Gtk.Window):
 
     def on_drag_data_received(self, caller, context, x, y, selection, target_type, timestamp):
         """ Drag and drop received slot """
-
         ## Clean selection url string
         selection_data = selection.get_data().decode("utf-8")
         selection_data = selection_data.strip('\r\n\x00')
@@ -140,7 +146,7 @@ def main():
             app.window.add_from_path(arg)
     
     ## Add title layer
-    app.window.map.add_layer( TileLayer("https://a.tile.openstreetmap.org/{z}/{x}/{y}.png", blocking=False) )
+    #app.window.map.add_layer( TileLayer("https://a.tile.openstreetmap.org/{z}/{x}/{y}.png", blocking=False) )
     #app.window.map.add_layer( RasterLayer("/home/ben/Downloads/LC08_L1TP_019033_20200607_20200625_01_T1/LC08_L1TP_019033_20200607_20200625_01_T1.tif", True))
     #app.window.map.add_layer( TileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", blocking=False) )
     ## Set to random color
