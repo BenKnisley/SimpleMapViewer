@@ -7,7 +7,7 @@ from setuptools import setup
 
 setup(
     name = "MapViewer",
-    version = "0.0.0",
+    version = "0.0.1",
     author = "Ben Knisley",
     author_email = "benknisley@gmail.com",
     description = ("A module for rendering maps."),
