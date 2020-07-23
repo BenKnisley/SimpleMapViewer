@@ -21,7 +21,7 @@ from gi.repository import Gtk, Gdk, Gio, GObject
 ## Import VectorLayer & MapCanvas
 from PyMapKit import VectorLayer, RasterLayer, TileLayer
 
-from MapCanvasGTK import MapCanvas
+import MapCanvasGTK
 
 
 class MapViewerApplication(Gtk.Application):
@@ -58,35 +58,38 @@ class MainWindow(Gtk.Window):
         self.set_border_width(0)
 
         ## Setup MapCanvas Widget
-        self.map = MapCanvas()
-        self.map.set_location(40.0, -83.0)
-        self.map.set_scale(76)
+        self.map = MapCanvasGTK.MapCanvas()
+        self.map.add_tool( MapCanvasGTK.UITool() )
 
         ## Enable and setup drag and drop
         self.connect('drag_data_received', self.on_drag_data_received)
         self.drag_dest_set( Gtk.DestDefaults.MOTION | Gtk.DestDefaults.HIGHLIGHT | Gtk.DestDefaults.DROP, [Gtk.TargetEntry.new("text/uri-list", 0, 80)], Gdk.DragAction.COPY)
 
-        ## Create layout, add MapView, and add layout to window
-        self.layout = Gtk.VBox()
-        self.layout.pack_start(self.map, True, True, 0)
 
+        ## Create Overlay and put map canvas in it
+        self.overlay = Gtk.Overlay()
+        self.overlay.add(self.map)
 
-
-        x = Gtk.Overlay()
-        x.add(self.layout)
-        e = Gtk.Entry()
-        e.set_valign(Gtk.Align.START)
-        e.set_halign(Gtk.Align.START)
-        e.set_margin_top(30)
-        e.set_margin_left(30)
-        x.add_overlay(e)
-
-        self.add(x)
-        #self.add(self.layout)
-
-        #self.layout.pack_start(Gtk.Entry(), False, True, 0)
-        #self.add(self.layout)
+        ''' Over widget add
+        over_widget = Gtk.Button("Press Me")
+        over_widget.set_valign(Gtk.Align.START)
+        over_widget.set_halign(Gtk.Align.START)
+        over_widget.set_margin_top(30)
+        over_widget.set_margin_left(30)
+        #self.overlay.add_overlay(over_widget)
+        '''
     
+        ## Create main window layout, and add layout to window
+        self.layout = Gtk.VBox()
+        self.add(self.layout)
+
+        ## Add overlay with map in it to layout
+        self.layout.pack_start(self.overlay, True, True, 0)
+
+
+
+
+
     def add_from_path(self, path):
         """ """
         file_extension = path.split(".")[-1]
