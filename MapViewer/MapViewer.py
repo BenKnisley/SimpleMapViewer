@@ -54,25 +54,57 @@ class LayerView(Gtk.TreeView):
         self.set_activate_on_single_click(True)
 
         ## Setup a ListStore as a data model
-        self.store = Gtk.ListStore(str, object)
+        self.store = Gtk.ListStore(object, str) ## MapLayer, layer name
         self.set_model(self.store)
 
         ## Setup a single column as a model
         rendererText = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("Map Layers                                   ", rendererText, text=0)
+        column = Gtk.TreeViewColumn("                                   Map Layers                                   ", rendererText, text=1)
         self.append_column(column)
 
-        self.connect("row-activated", self.callback)
+        ## Connect selection changes with selection_changed_slot
+        selection_watcher = self.get_selection()
+        selection_watcher.connect("changed", self.selection_changed_slot)
 
-    def callback(self, treeview, index, view_column):
-        tree_row = treeview.get_model()[index]
-        self.parent_map.active_layer_index = self.parent_map._layer_list.index(tree_row[1])
+
+    #def selection_changed_slot(self, treeview, index, view_column):
+    def selection_changed_slot(self, caller):
+        """
+        Updated active layer index when called
+        """
+        ## Get model and treepath of selected row
+        selection_watcher = self.get_selection()
+        model, treepath = selection_watcher.get_selected_rows()
+
+        ## Get layer from model and treepath
+        layer = model[treepath][0]
+
+        ## Get Index of layer in map layer list
+        layer_index = self.parent_map._layer_list.index(layer)
+
+        ## Set active layer index to selected layer index
+        self.parent_map.active_layer_index = layer_index
+
+        
+        
+        
+        #tree_row = treeview.get_model()[index]
+        #self.parent_map.active_layer_index = self.parent_map._layer_list.index(tree_row[1])
         #view_column
 
 
-    def add_layer(self, caller, layer):
-        print("hello")
-        self.store.append([layer.name, layer])
+    def layer_added_slot(self, caller, layer):
+        """
+        Adds a given MapLayer to the layer list
+        """
+        ## Add layer name and layer to model
+        self.store.append([layer, layer.name])
+
+        ## Set selection new layer
+        index = len(self.store) - 1
+        path = Gtk.TreePath.new_from_indices([index])
+        self.set_cursor_on_cell(path, None, None, False)
+
 
 
 
@@ -102,7 +134,7 @@ class MainWindow(Gtk.Window):
         ## Setup LayerView Widget
         layer_view = LayerView(self.map)
 
-        self.map.connect('layer-added', layer_view.add_layer)
+        self.map.connect('layer-added', layer_view.layer_added_slot)
 
 
 
