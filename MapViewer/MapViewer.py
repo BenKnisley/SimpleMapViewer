@@ -44,6 +44,39 @@ class MapViewerApplication(Gtk.Application):
         self.add_window(self.window)
 
 
+class LayerView(Gtk.TreeView):
+    def __init__(self, parent_map):
+        ## Init as a TreeView obj
+        Gtk.TreeView.__init__(self)
+        self.parent_map = parent_map
+
+        ## Make item selected on single click
+        self.set_activate_on_single_click(True)
+
+        ## Setup a ListStore as a data model
+        self.store = Gtk.ListStore(str, object)
+        self.set_model(self.store)
+
+        ## Setup a single column as a model
+        rendererText = Gtk.CellRendererText()
+        column = Gtk.TreeViewColumn("Map Layers                                   ", rendererText, text=0)
+        self.append_column(column)
+
+        self.connect("row-activated", self.callback)
+
+    def callback(self, treeview, index, view_column):
+        tree_row = treeview.get_model()[index]
+        self.parent_map.active_layer_index = self.parent_map._layer_list.index(tree_row[1])
+        #view_column
+
+
+    def add_layer(self, caller, layer):
+        print("hello")
+        self.store.append([layer.name, layer])
+
+
+
+
 class MainWindow(Gtk.Window):
     """ The main application window """
     def __init__(self):
@@ -52,39 +85,87 @@ class MainWindow(Gtk.Window):
         Gtk.Window.__init__(self)
         GObject.GObject.__init__(self)
 
-        ## Set properties
+        ## Set window properties
         self.set_title("GeoSpatial Data Viewer")
         self.resize(1700, 900)
         self.set_border_width(0)
+
+        ## Enable and setup drag and drop for window
+        self.connect('drag_data_received', self.on_drag_data_received)
+        self.drag_dest_set( Gtk.DestDefaults.MOTION | Gtk.DestDefaults.HIGHLIGHT | Gtk.DestDefaults.DROP, [Gtk.TargetEntry.new("text/uri-list", 0, 80)], Gdk.DragAction.COPY)
+        
 
         ## Setup MapCanvas Widget
         self.map = MapCanvasGTK.MapCanvas()
         self.map.add_tool( MapCanvasGTK.UITool() )
 
-        ## Enable and setup drag and drop
-        self.connect('drag_data_received', self.on_drag_data_received)
-        self.drag_dest_set( Gtk.DestDefaults.MOTION | Gtk.DestDefaults.HIGHLIGHT | Gtk.DestDefaults.DROP, [Gtk.TargetEntry.new("text/uri-list", 0, 80)], Gdk.DragAction.COPY)
+        ## Setup LayerView Widget
+        layer_view = LayerView(self.map)
+
+        self.map.connect('layer-added', layer_view.add_layer)
 
 
-        ## Create Overlay and put map canvas in it
-        self.overlay = Gtk.Overlay()
-        self.overlay.add(self.map)
 
-        ''' Over widget add
-        over_widget = Gtk.Button("Press Me")
-        over_widget.set_valign(Gtk.Align.START)
-        over_widget.set_halign(Gtk.Align.START)
-        over_widget.set_margin_top(30)
-        over_widget.set_margin_left(30)
-        #self.overlay.add_overlay(over_widget)
-        '''
-    
-        ## Create main window layout, and add layout to window
+
+
+
+        #####################
+        ###    Layout     ###
+        #####################
+
+        ## Create main window layout, and add layout to window(self)
         self.layout = Gtk.VBox()
         self.add(self.layout)
 
+        ## Setup top toolbar widget, and add to main layout
+        self.toolbar = Gtk.Toolbar()
+        newbtn = Gtk.ToolButton(Gtk.STOCK_NEW)
+
+        def x(*args): self.map.add_tool(MapCanvasGTK.SelectTool())
+        newbtn.connect('clicked', x)
+        
+        sep = Gtk.SeparatorToolItem()
+        self.toolbar.insert(newbtn, 0)
+        self.toolbar.insert(sep, 1)
+        self.layout.pack_start(self.toolbar, False, False, 0)
+
+
+        ## Setup side be side panes, add to main layout
+        side_by_side = Gtk.HBox()
+        self.layout.pack_start(side_by_side, True, True, 0)
+
+        ## Setup Sidebar layout, add to side by side
+        self.sidebar = Gtk.VBox()
+        side_by_side.pack_start(self.sidebar, False, False, 3)
+
+        ## Add layerView to sidebar
+        self.sidebar.pack_start(layer_view, True, True, 0)
+
+        ## Create a vbox to hold map_overlay, and map statusbar. Add to side_by_side
+        map_area = Gtk.VBox()
+        side_by_side.pack_start(map_area, True, True, 0)
+
+        ## Create overlay layout and put map canvas in it
+        self.map_overlay = Gtk.Overlay()
+        self.map_overlay.add(self.map)
+
+        ## Put Map Overlay into map_area
+        map_area.pack_start(self.map_overlay, True, True, 0)
+
+        ## Setup statusbar, add to map area
+        self.statusbar = Gtk.HBox()
+        self.statusbar.pack_start(Gtk.Label("Helo"), False, False, 10)
+        map_area.pack_start(self.statusbar, False, False, 0)
+
+
         ## Add overlay with map in it to layout
-        self.layout.pack_start(self.overlay, True, True, 0)
+
+
+
+
+
+
+
 
 
 
@@ -155,13 +236,6 @@ def main():
             ## Assume all args are a shapefile path (for now)
             app.window.add_from_path(arg)
     
-    ## Add title layer
-    #app.window.map.add_layer( TileLayer("https://a.tile.openstreetmap.org/{z}/{x}/{y}.png", blocking=False) )
-    #app.window.map.add_layer( RasterLayer("/home/ben/Downloads/LC08_L1TP_019033_20200607_20200625_01_T1/LC08_L1TP_019033_20200607_20200625_01_T1.tif", True))
-    #app.window.map.add_layer( TileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", blocking=False) )
-    ## Set to random color
-
-
     ## Run Applications
     app.run()
 
