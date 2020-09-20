@@ -73,7 +73,7 @@ class SelectTool(GObject.GObject):
 
         ## Get current active layer
         layer = self.parent.get_layer( self.parent.active_layer_index )
-        if isinstance(layer, PyMapKit.VectorLayer):
+        if isinstance(layer, VectorLayer):
             ## Get proj coords of click
             proj_x, proj_y = self.parent.pix2proj(x, self.parent.height - y)
 
@@ -155,7 +155,7 @@ class SelectTool(GObject.GObject):
             cr.stroke()
 
         for f in self.selected:
-            f.draw(self.parent.get_layer( self.parent.active_layer_index ), self.parent.renderer, cr, color_over_ride='yellow')
+            f.draw(self.parent.renderer, cr, color_override='yellow')
 
 
 class MapViewerApplication(Gtk.Application):
