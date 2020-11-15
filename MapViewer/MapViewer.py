@@ -223,6 +223,7 @@ class SelectTool(GObject.GObject):
                 self.parent.renderer.draw_polygon(cr, f.geometry.structure, x_values, y_values, selected_style)
 
 
+
 class MapViewerApplication(Gtk.Application):
     """ The root GTK object for the application. Opens MainWindow. """
     def __init__(self):
