@@ -29,6 +29,64 @@ from PyMapKit import VectorLayer, RasterLayer, TileLayer
 
 
 
+class FeatureStyle:
+    def __init__(self):
+        self.cached_renderer = None
+        
+        self.display = None
+
+        self.color = 'green'
+        self._color_cache = None
+        self.opacity = 1
+
+        self.outline_color = 'black'
+        self._outline_color_cache = None
+
+        self.weight = 1
+        self.outline_weight = 1
+    
+    def set_defaults(self, geometry_type):
+        if geometry_type == 'point':
+            self.display = 'point'
+            self.color = 'red'
+            self.weight = 3
+            self.outline_color = 'black'
+            self.outline_weight = 1
+        
+        elif geometry_type == 'line':
+            self.display = 'solid'
+            self.color = 'blue'
+            self.weight = 0.5
+            self.outline_color = 'black'
+            self.outline_weight = 0
+        
+        else: ## geometry_type == Polygon
+            self.display = 'solid'
+            self.color = 'green'
+            self.weight = 1
+            self.outline_color = 'black'
+            self.outline_weight = 1
+        
+    def cache_renderer(self, renderer):
+        self._color_cache = renderer.cache_color(self.color, opacity=self.opacity)
+        self._outline_color_cache = renderer.cache_color(self.outline_color, opacity=self.opacity)
+        self.cached_renderer = renderer
+    
+    def set_color(self, new_color):
+        self.color = new_color
+        self._color_cache = None
+        self.cached_renderer = None
+    
+    def set_outline_color(self, new_color):
+        self.outline_color = new_color
+        self._outline_color_cache = None
+        self.cached_renderer = None
+
+
+selected_style = FeatureStyle()
+#selected_style.set_color('yellow')
+
+
 class SelectTool(GObject.GObject):
     __gsignals__ = {
     "features-selected": (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (object,)),
@@ -73,7 +131,7 @@ class SelectTool(GObject.GObject):
 
         ## Get current active layer
         layer = self.parent.get_layer( self.parent.active_layer_index )
-        if isinstance(layer, PyMapKit.VectorLayer):
+        if isinstance(layer, VectorLayer):
             ## Get proj coords of click
             proj_x, proj_y = self.parent.pix2proj(x, self.parent.height - y)
 
@@ -107,7 +165,7 @@ class SelectTool(GObject.GObject):
 
         ## Get current active layer, only proceed of VectorLayer
         layer = self.parent.get_layer( self.parent.active_layer_index )
-        if isinstance(layer, PyMapKit.VectorLayer):
+        if isinstance(layer, VectorLayer):
             ## Get proj coords of start of drag
             x0, y0 = self.select_box_start_coord
             
@@ -155,7 +213,14 @@ class SelectTool(GObject.GObject):
             cr.stroke()
 
         for f in self.selected:
-            f.draw(self.parent.get_layer( self.parent.active_layer_index ), self.parent.renderer, cr, color_over_ride='yellow')
+            x_values, y_values = f.parent.parent.proj2pix(*f.geometry.get_points())
+
+            if f.geometry.geometry_type == 'point':
+                self.parent.renderer.draw_point(cr, f.geometry.structure, x_values, y_values, selected_style)
+            elif f.geometry.geometry_type == 'line':
+                self.parent.renderer.draw_line(cr, f.geometry.structure, x_values, y_values, selected_style)
+            else: #f.geometry_type == 'polygon':
+                self.parent.renderer.draw_polygon(cr, f.geometry.structure, x_values, y_values, selected_style)
 
 
 class MapViewerApplication(Gtk.Application):
@@ -203,7 +268,6 @@ class LayerView(Gtk.TreeView):
         selection_watcher.connect("changed", self.selection_changed_slot)
         #self.store.connect("row-inserted", self.ping1)
         self.store.connect("row-deleted", self.push_model_to_layer_list)
-
     
     def push_model_to_layer_list(self, treemodel, path):
         """ Sets current order of items to maps layer list """
@@ -215,11 +279,6 @@ class LayerView(Gtk.TreeView):
         self.parent_map.call_redraw(self)
     
         #for layer in self.parent_map._layer_list:
-
-        
-
-
-
 
     #def selection_changed_slot(self, treeview, index, view_column):
     def selection_changed_slot(self, caller):
@@ -277,7 +336,6 @@ class IdentifyDisplay(Gtk.Frame):
             self.layout.remove(widget)
         self.subwidgets = []
     
-
     def list_features(self, features):
         ## Clean out old before adding new
         for widget in self.subwidgets:
@@ -353,7 +411,6 @@ class ToolBar(Gtk.Toolbar):
         self.id_tool_button.set_tooltip_text("Select Tool")
         self.id_tool_button.connect('toggled', self.id_tool_button_toggled)
         self.insert(self.id_tool_button, 2)
-
 
     def select_tool_button_toggled(self, caller):
         if self.select_tool_button.get_active():
@@ -463,7 +520,7 @@ class MainWindow(Gtk.Window):
 
         ## If Vector data, create a New Vector Layer
         if file_extension in ('shp', 'geojson'): 
-            layer = VectorLayer(path)
+            layer = VectorLayer.from_path(path)
             color_list = ['salmon', 'goldenrod', 'firebrick', 'steelblue', 'aquamarine', 'seagreen', 'powderblue', 'cornflowerblue', 'crimson', 'darkgoldenrod', 'chocolate', 'darkmagenta', 'darkolivegreen', 'darkturquoise', 'deeppink']
             rand_color = color_list[randint(0, len(color_list)-1)]
             for f in layer: f.set_color(rand_color)
