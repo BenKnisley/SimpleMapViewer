@@ -29,6 +29,7 @@ from PyMapKit import VectorLayer, RasterLayer, TileLayer
 
 
 
+
 class FeatureStyle:
     def __init__(self):
         self.cached_renderer = None
@@ -40,6 +41,7 @@ class FeatureStyle:
         self.opacity = 1
 
         self.outline_color = 'black'
+        self.outline_opacity = 1
         self._outline_color_cache = None
 
         self.weight = 1
@@ -69,22 +71,26 @@ class FeatureStyle:
         
     def cache_renderer(self, renderer):
         self._color_cache = renderer.cache_color(self.color, opacity=self.opacity)
-        self._outline_color_cache = renderer.cache_color(self.outline_color, opacity=self.opacity)
+        self._outline_color_cache = renderer.cache_color(self.outline_color, opacity=self.outline_opacity)
         self.cached_renderer = renderer
     
-    def set_color(self, new_color):
+    def set_color(self, new_color, opacity=1):
         self.color = new_color
+        self.opacity = opacity
         self._color_cache = None
         self.cached_renderer = None
     
-    def set_outline_color(self, new_color):
+    def set_outline_color(self, new_color, opacity=1):
         self.outline_color = new_color
+        self.outline_opacity = opacity
         self._outline_color_cache = None
         self.cached_renderer = None
 
 
+
 selected_style = FeatureStyle()
-selected_style.set_color('yellow')
+selected_style.set_color('yellow', 0.25)
+selected_style.set_outline_color('red')
 
 
 
@@ -586,6 +592,7 @@ class ToolBar(Gtk.Toolbar):
         self.tile_map_tool.connect('toggled', self.map_tool_button_toggled)
         self.insert(self.tile_map_tool, 2)
 
+
     def select_tool_button_toggled(self, caller):
         if self.select_tool_button.get_active():
             self.map.add_tool(self.select_tool)
@@ -604,7 +611,7 @@ class ToolBar(Gtk.Toolbar):
         if self.tile_map_tool.get_active():
             if not self.tile_layer:
                 self.tile_layer = TileLayer('https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', False)
-            self.map.add_layer(self.tile_layer)
+            self.map.add_layer(self.tile_layer, 0)
         else:
             self.map.remove_layer(self.tile_layer)
 
@@ -633,15 +640,16 @@ class MainWindow(Gtk.Window):
         ## Setup MapCanvas Widget
         self.map = MapCanvasGTK.MapCanvas()
 
+
+
+
+
         ## Setup LayerView Widget
         layer_view = LayerView(self.map)
 
         self.map.connect('layer-added', layer_view.layer_added_slot)
         self.map.connect('layer-removed', layer_view.layer_removed_slot)
-
-
-
-
+        self.map.connect('location-changed', self.location_changed_slot)
 
 
         #####################
@@ -691,7 +699,19 @@ class MainWindow(Gtk.Window):
 
         ## Setup statusbar, add to map area
         self.statusbar = Gtk.HBox()
-        self.statusbar.pack_start(Gtk.Label("Helo"), False, False, 10)
+        location = self.map.get_location()
+        self.status_location_label = Gtk.Label(f"Location: {round(location[0], 4)}, {round(location[1], 4)}")
+        self.statusbar.pack_start(self.status_location_label, False, False, 10)
+        
+
+        projection = self.map._projection
+        p2 = projection.srs
+        projection = projection.crs.to_epsg()
+        projection = f"Projection: EPSG:{str(projection)}"
+        self.projection_status_label = Gtk.Label(projection)
+        self.projection_status_label.set_tooltip_text(p2)
+        self.statusbar.pack_start(self.projection_status_label, False, False, 10)
+        
         map_area.pack_start(self.statusbar, False, False, 0)
 
 
@@ -748,6 +768,9 @@ class MainWindow(Gtk.Window):
             self.map.call_redraw(self)
 
 
+    def location_changed_slot(self, caller, geox, geoy, projx, projy):
+        #print(geoy, geox)
+        self.status_location_label.set_text(f"Location: {round(geoy, 4)}, {round(geox, 4)} ")
 
 def main():
     """ Main function exists to allow for multiple entry points (namely setup.py's console_scripts)"""
