@@ -26,179 +26,15 @@ import MapCanvasGTK
 
 ## Import layers from VectorLayer
 from PyMapKit import VectorLayer, RasterLayer, TileLayer
+from PyMapKit import vector
+
+from .LayerViewWidget import LayerView
 
 
 
-
-class FeatureStyle:
-    def __init__(self):
-        self.cached_renderer = None
-        
-        self.display = None
-
-        self.color = 'green'
-        self._color_cache = None
-        self.opacity = 1
-
-        self.outline_color = 'black'
-        self.outline_opacity = 1
-        self._outline_color_cache = None
-
-        self.weight = 1
-        self.outline_weight = 1
-    
-    def set_defaults(self, geometry_type):
-        if geometry_type == 'point':
-            self.display = 'point'
-            self.color = 'red'
-            self.weight = 3
-            self.outline_color = 'black'
-            self.outline_weight = 1
-        
-        elif geometry_type == 'line':
-            self.display = 'solid'
-            self.color = 'blue'
-            self.weight = 0.5
-            self.outline_color = 'black'
-            self.outline_weight = 0
-        
-        else: ## geometry_type == Polygon
-            self.display = 'solid'
-            self.color = 'green'
-            self.weight = 1
-            self.outline_color = 'black'
-            self.outline_weight = 1
-        
-    def cache_renderer(self, renderer):
-        self._color_cache = renderer.cache_color(self.color, opacity=self.opacity)
-        self._outline_color_cache = renderer.cache_color(self.outline_color, opacity=self.outline_opacity)
-        self.cached_renderer = renderer
-    
-    def set_color(self, new_color, opacity=1):
-        self.color = new_color
-        self.opacity = opacity
-        self._color_cache = None
-        self.cached_renderer = None
-    
-    def set_outline_color(self, new_color, opacity=1):
-        self.outline_color = new_color
-        self.outline_opacity = opacity
-        self._outline_color_cache = None
-        self.cached_renderer = None
-
-
-
-selected_style = FeatureStyle()
-selected_style.set_color('yellow', 0.25)
-selected_style.set_outline_color('red')
-
-
-
-class MapViewerApplication(Gtk.Application):
-    """ The root GTK object for the application. Opens MainWindow. """
-    def __init__(self):
-        """ Opens MainWindow and connects signals & slots. """
-        ## Set ID and flags, initialize Gtk Application parent.
-        app_id="apps.test.MapViewer.id" + str(randint(1,1000))
-        flags=Gio.ApplicationFlags.FLAGS_NONE
-        Gtk.Application.__init__(self, application_id=app_id, flags=flags)
-
-        ## Initialize self object.
-        self.window = MainWindow()
-
-        ## Connect self activate signal, with self on_activate slot
-        self.connect("activate", self._on_activate)
-
-    def _on_activate(self, caller):
-        self.window.show_all()
-        self.add_window(self.window)
-
-
-class LayerView(Gtk.TreeView):
-    def __init__(self, parent_map):
-        ## Init as a TreeView obj
-        Gtk.TreeView.__init__(self)
-        self.parent_map = parent_map
-
-        ## Make item selected on single click
-        self.set_activate_on_single_click(True)
-
-        ## Setup a ListStore as a data model
-        self.store = Gtk.ListStore(object, str) ## MapLayer, layer name
-        self.set_model(self.store)
-
-        self.set_reorderable(True)
-
-        ## Setup a single column as a model
-        rendererText = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("                                   Map Layers                                   ", rendererText, text=1)
-        self.append_column(column)
-
-        ## Connect selection changes with selection_changed_slot
-        selection_watcher = self.get_selection()
-        selection_watcher.connect("changed", self.selection_changed_slot)
-        #self.store.connect("row-inserted", self.ping1)
-        self.store.connect("row-deleted", self.push_model_to_layer_list)
-    
-    def push_model_to_layer_list(self, treemodel, path):
-        """ Sets current order of items to maps layer list """
-        ## 
-        for i, iter in enumerate(treemodel):
-            self.parent_map._layer_list[i] = iter[0]
-
-        self.parent_map.call_rerender(self)
-        self.parent_map.call_redraw(self)
-    
-        #for layer in self.parent_map._layer_list:
-
-    #def selection_changed_slot(self, treeview, index, view_column):
-    def selection_changed_slot(self, caller):
-        """
-        Updated active layer index when called
-        """
-        ## Get model and treepath of selected row
-        selection_watcher = self.get_selection()
-        model, treepath = selection_watcher.get_selected_rows()
-
-        ## Get layer from model and treepath
-        layer = model[treepath][0]
-
-        ## Get Index of layer in map layer list
-        layer_index = self.parent_map._layer_list.index(layer)
-
-        ## Set active layer index to selected layer index
-        self.parent_map.active_layer_index = layer_index
-
-        
-        
-        
-        #tree_row = treeview.get_model()[index]
-        #self.parent_map.active_layer_index = self.parent_map._layer_list.index(tree_row[1])
-        #view_column
-
-    def layer_added_slot(self, caller, layer):
-        """
-        Adds a given MapLayer to the layer list
-        """
-        ## Add layer name and layer to model
-        self.store.append([layer, layer.name])
-
-        ## Set selection new layer
-        index = len(self.store) - 1
-        path = Gtk.TreePath.new_from_indices([index])
-        self.set_cursor_on_cell(path, None, None, False)
-
-
-    def layer_removed_slot(self, caller, layer):
-        """
-        Removes a given MapLayer to the layer list
-        """
-        #!! THIS IS A HACK AND I SHOULD FIND A BETTER WAY
-        for r in self.store:
-            if r[0] == layer:
-                self.store.remove(r.iter)
-
-
+##############################
+## Tool Classes
+##############################
 
 class SelectTool(GObject.GObject): ## This serves as a base tool to copy from
     __gsignals__ = {
@@ -211,6 +47,11 @@ class SelectTool(GObject.GObject): ## This serves as a base tool to copy from
         self.connection_list = []
         self.select_box_active = False
         self.selected = []
+
+        self.selected_style = vector.FeatureStyle()
+        self.selected_style.set_color('yellow', 0.25)
+        self.selected_style.set_outline_color('red')
+
 
         #self.signal_new("map-features-selected", self, GObject.SIGNAL_RUN_FIRST, None, (object,))
 
@@ -329,11 +170,11 @@ class SelectTool(GObject.GObject): ## This serves as a base tool to copy from
             x_values, y_values = f.parent.parent.proj2pix(*f.geometry.get_points())
 
             if f.geometry.geometry_type == 'point':
-                self.parent.renderer.draw_point(cr, f.geometry.structure, x_values, y_values, selected_style)
+                self.parent.renderer.draw_point(cr, f.geometry.structure, x_values, y_values, self.selected_style)
             elif f.geometry.geometry_type == 'line':
-                self.parent.renderer.draw_line(cr, f.geometry.structure, x_values, y_values, selected_style)
+                self.parent.renderer.draw_line(cr, f.geometry.structure, x_values, y_values, self.selected_style)
             else: #f.geometry_type == 'polygon':
-                self.parent.renderer.draw_polygon(cr, f.geometry.structure, x_values, y_values, selected_style)
+                self.parent.renderer.draw_polygon(cr, f.geometry.structure, x_values, y_values, self.selected_style)
 
 
 class IdentifyTool(GObject.GObject):
@@ -348,6 +189,10 @@ class IdentifyTool(GObject.GObject):
         self.connection_list = []
         self.select_box_active = False
         self.selected = []
+
+        self.selected_style = vector.FeatureStyle()
+        self.selected_style.set_color('yellow', 0.25)
+        self.selected_style.set_outline_color('red')
 
         self.window = window
 
@@ -390,29 +235,6 @@ class IdentifyTool(GObject.GObject):
         self.window.sidebar.remove(self.display)
         self.window.sidebar.show_all()
     
-        def select_at_click(self, caller, x, y):
-            """ """
-            self.deselect_all(self)
-
-            ## Get current active layer
-            layer = self.parent.get_layer( self.parent.active_layer_index )
-            if isinstance(layer, VectorLayer):
-                ## Get proj coords of click
-                proj_x, proj_y = self.parent.pix2proj(x, self.parent.height - y)
-
-                ## Get features at point
-                selected_features = layer.point_select(proj_x, proj_y)
-
-                ## Add all selected features to selected_features list
-                for feature in selected_features:
-                    if feature not in self.selected:
-                        self.selected.append(feature)
-
-            ## Emit selected_features 
-            self.emit("features-selected", self.selected)
-
-            ## Redraw widget with selected features highlighted
-            self.parent.call_redraw(self)
     
     def select_at_click(self, caller, x, y):
         """ """
@@ -505,11 +327,11 @@ class IdentifyTool(GObject.GObject):
             x_values, y_values = f.parent.parent.proj2pix(*f.geometry.get_points())
 
             if f.geometry.geometry_type == 'point':
-                self.parent.renderer.draw_point(cr, f.geometry.structure, x_values, y_values, selected_style)
+                self.parent.renderer.draw_point(cr, f.geometry.structure, x_values, y_values, self.selected_style)
             elif f.geometry.geometry_type == 'line':
-                self.parent.renderer.draw_line(cr, f.geometry.structure, x_values, y_values, selected_style)
+                self.parent.renderer.draw_line(cr, f.geometry.structure, x_values, y_values, self.selected_style)
             else: #f.geometry_type == 'polygon':
-                self.parent.renderer.draw_polygon(cr, f.geometry.structure, x_values, y_values, selected_style)
+                self.parent.renderer.draw_polygon(cr, f.geometry.structure, x_values, y_values, self.selected_style)
 
 
     def ping(self, caller, features):
@@ -517,7 +339,6 @@ class IdentifyTool(GObject.GObject):
     
     def ping2(self, caller):
         self.display.clear_display()
-
 
 class IdentifyDisplay(Gtk.Frame):
     def __init__(self):
@@ -556,7 +377,53 @@ class IdentifyDisplay(Gtk.Frame):
             self.layout.show_all()
 
 
+class TileLayerTool(GObject.GObject):
+    __gsignals__ = {
+    #"features-selected": (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (object,)),
+    #"selection-cleared": (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
+    }
+    def __init__(self):
+        GObject.GObject.__init__(self)
+        self.parent = None
+        self.connection_list = []
 
+        self.tile_layer = self.tile_layer = TileLayer('https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', False, "./tile_store")
+        
+        #self.signal_new("map-features-selected", self, GObject.SIGNAL_RUN_FIRST, None, (object,))
+
+    def activate(self, parent):
+        ## Set parent object
+        self.parent = parent
+
+        self.parent.add_layer(self.tile_layer)
+
+        ## Setup connection, keeping the reference to each in connection_list
+        #self.connection_list.append( self.parent.connect("double-click", self.select_at_click) )
+
+    def deactivate(self):
+        ## Reset tool vars
+        self.selected = []
+        ## Disconnect all connection
+        for connect_id in self.connection_list:
+            self.parent.disconnect(connect_id)
+        
+        ## Clear Connection list
+        self.connection_list = []
+
+        ## 
+        self.parent.remove_layer(self.tile_layer)
+
+        ## Remove parent
+        self.parent = None
+    
+    def draw(self, cr):
+        pass
+
+
+
+##############################
+## Structure classes
+##############################
 
 class ToolBar(Gtk.Toolbar):
     def __init__(self, window, parent_map):
@@ -565,6 +432,8 @@ class ToolBar(Gtk.Toolbar):
         self.window = window
         self.map = parent_map
 
+
+        ## Setup select tool & toolbar button
         self.select_tool = SelectTool()
         self.select_tool_button = Gtk.ToggleToolButton()
         self.select_tool_button.set_icon_name('tool-pointer')
@@ -575,22 +444,21 @@ class ToolBar(Gtk.Toolbar):
         #sep = Gtk.SeparatorToolItem()
         #self.insert(sep, 1)
 
+        ## Setup identify tool & toolbar button
         self.id_tool = IdentifyTool(self.window)
-
         self.id_tool_button = Gtk.ToggleToolButton()
         self.id_tool_button.set_icon_name('search')
         self.id_tool_button.set_tooltip_text("Select Tool")
         self.id_tool_button.connect('toggled', self.id_tool_button_toggled)
         self.insert(self.id_tool_button, 1)
-
-
-        self.tile_layer = None
-        self.tile_map_tool = SelectTool()
-        self.tile_map_tool = Gtk.ToggleToolButton()
-        self.tile_map_tool.set_icon_name('maps')
-        self.tile_map_tool.set_tooltip_text("OpenStreetMaps")
-        self.tile_map_tool.connect('toggled', self.map_tool_button_toggled)
-        self.insert(self.tile_map_tool, 2)
+        
+        ## Setup tile layer tool & button
+        self.tile_map_tool = TileLayerTool()
+        self.map_tool_button = Gtk.ToggleToolButton()
+        self.map_tool_button.set_icon_name('maps')
+        self.map_tool_button.set_tooltip_text("Toggle OpenStreetMaps Layer")
+        self.map_tool_button.connect('toggled', self.map_tool_button_toggled)
+        self.insert(self.map_tool_button, 2)
 
 
     def select_tool_button_toggled(self, caller):
@@ -608,16 +476,49 @@ class ToolBar(Gtk.Toolbar):
             self.map.remove_tool(self.id_tool)
 
     def map_tool_button_toggled(self, caller):
-        if self.tile_map_tool.get_active():
-            if not self.tile_layer:
-                self.tile_layer = TileLayer('https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', False)
-            self.map.add_layer(self.tile_layer, 0)
+        if self.map_tool_button.get_active():
+            self.map.add_tool(self.tile_map_tool)
         else:
-            self.map.remove_layer(self.tile_layer)
+            self.map.remove_tool(self.tile_map_tool)
 
+class StatusBar(Gtk.HBox):
+    def __init__(self, window, parent_map):
+        Gtk.HBox.__init__(self)
+        self.map = parent_map
 
+        ## Add a location label
+        self.pack_start(Gtk.Label("Location:"), False, False, 0)
+        
+        ## Setup & add location tracker
+        self.location_tracker = Gtk.Entry()
+        self.location_tracker.set_text("0, 0")
+        self.pack_start(self.location_tracker, False, False, 10)
+        
+        ## Setup signals
+        self.location_tracker.connect('activate', self.loc_label_input_slot)
+        self.map.connect('location-changed', self.location_changed_slot)
+        
 
+        projection = self.map._projection
+        p2 = projection.srs
+        projection = projection.crs.to_epsg()
+        projection = f"Projection: EPSG:{str(projection)}"
+        #@
+        self.projection_status_label = Gtk.Label(projection)
+        self.projection_status_label.set_tooltip_text(p2)
+        self.pack_start(self.projection_status_label, False, False, 10)
 
+    def loc_label_input_slot(self, caller, *args):
+        location_string = self.location_tracker.get_text()
+        self.map.grab_focus()
+        lat, lon = location_string.split(',')
+        lat = lat.strip(','); lon = lon.strip(',')
+        lat = float(lat); lon = float(lon)
+        self.map.set_location(lat, lon)
+        self.map.call_rerender(self)
+    
+    def location_changed_slot(self, caller, geox, geoy, projx, projy):
+        self.location_tracker.set_text(f"{round(geoy, 4)}, {round(geox, 4)}")
 
 class MainWindow(Gtk.Window):
     """ The main application window """
@@ -628,7 +529,7 @@ class MainWindow(Gtk.Window):
         GObject.GObject.__init__(self)
 
         ## Set window properties
-        self.set_title("GeoSpatial Data Viewer")
+        self.set_title("MapViewer")
         self.resize(1700, 900)
         self.set_border_width(0)
 
@@ -636,21 +537,15 @@ class MainWindow(Gtk.Window):
         self.connect('drag_data_received', self.on_drag_data_received)
         self.drag_dest_set( Gtk.DestDefaults.MOTION | Gtk.DestDefaults.HIGHLIGHT | Gtk.DestDefaults.DROP, [Gtk.TargetEntry.new("text/uri-list", 0, 80)], Gdk.DragAction.COPY)
         
-
         ## Setup MapCanvas Widget
         self.map = MapCanvasGTK.MapCanvas()
-
-
-
-
 
         ## Setup LayerView Widget
         layer_view = LayerView(self.map)
 
+        ## Connect map signals
         self.map.connect('layer-added', layer_view.layer_added_slot)
         self.map.connect('layer-removed', layer_view.layer_removed_slot)
-        self.map.connect('location-changed', self.location_changed_slot)
-
 
         #####################
         ###    Layout     ###
@@ -663,7 +558,6 @@ class MainWindow(Gtk.Window):
         ## Setup top toolbar widget, and add to main layout
         self.toolbar = ToolBar(self, self.map)
         self.layout.pack_start(self.toolbar, False, False, 0)
-
 
         ## Setup side be side panes, add to main layout
         side_by_side = Gtk.HBox()
@@ -690,32 +584,15 @@ class MainWindow(Gtk.Window):
         over_widget.set_halign(Gtk.Align.START)
         over_widget.set_margin_top(30)
         over_widget.set_margin_left(30)
-        #self.overlay.add_overlay(over_widget)
-        '''
+        self.map_overlay.add_overlay(over_widget)
+        #'''
     
-
         ## Put Map Overlay into map_area
         map_area.pack_start(self.map_overlay, True, True, 0)
 
-        ## Setup statusbar, add to map area
-        self.statusbar = Gtk.HBox()
-        location = self.map.get_location()
-        self.status_location_label = Gtk.Label(f"Location: {round(location[0], 4)}, {round(location[1], 4)}")
-        self.statusbar.pack_start(self.status_location_label, False, False, 10)
-        
-
-        projection = self.map._projection
-        p2 = projection.srs
-        projection = projection.crs.to_epsg()
-        projection = f"Projection: EPSG:{str(projection)}"
-        self.projection_status_label = Gtk.Label(projection)
-        self.projection_status_label.set_tooltip_text(p2)
-        self.statusbar.pack_start(self.projection_status_label, False, False, 10)
-        
+        self.statusbar = StatusBar(self, self.map)
         map_area.pack_start(self.statusbar, False, False, 0)
 
-
-        ## Add overlay with map in it to layout
 
     def add_from_path(self, path):
         """ """
@@ -768,9 +645,29 @@ class MainWindow(Gtk.Window):
             self.map.call_redraw(self)
 
 
-    def location_changed_slot(self, caller, geox, geoy, projx, projy):
-        #print(geoy, geox)
-        self.status_location_label.set_text(f"Location: {round(geoy, 4)}, {round(geox, 4)} ")
+class MapViewerApplication(Gtk.Application):
+    """ The root GTK object for the application. Opens MainWindow. """
+    def __init__(self):
+        """ Opens MainWindow and connects signals & slots. """
+        ## Set ID and flags, initialize Gtk Application parent.
+        app_id="apps.test.MapViewer.id" + str(randint(1,1000))
+        flags=Gio.ApplicationFlags.FLAGS_NONE
+        Gtk.Application.__init__(self, application_id=app_id, flags=flags)
+
+        ## Initialize self object.
+        self.window = MainWindow()
+
+        ## Connect self activate signal, with self on_activate slot
+        self.connect("activate", self._on_activate)
+
+    def _on_activate(self, caller):
+        self.window.show_all()
+        self.add_window(self.window)
+
+
+##############################
+## ././. classes
+##############################
 
 def main():
     """ Main function exists to allow for multiple entry points (namely setup.py's console_scripts)"""
