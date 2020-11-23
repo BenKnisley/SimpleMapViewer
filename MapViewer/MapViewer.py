@@ -36,7 +36,7 @@ from .LayerViewWidget import LayerView
 ## Tool Classes
 ##############################
 
-class SelectTool(GObject.GObject): ## This serves as a base tool to copy from
+class SelectTool(GObject.GObject): 
     __gsignals__ = {
     "features-selected": (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (object,)),
     "selection-cleared": (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
@@ -420,6 +420,105 @@ class TileLayerTool(GObject.GObject):
         pass
 
 
+class MeasureTool(GObject.GObject):
+    __gsignals__ = {}
+    def __init__(self):
+        GObject.GObject.__init__(self)
+        self.parent = None
+        self.connection_list = []
+
+
+        self.p1 = None
+        self.p2 = None
+        self.measuring_active = False
+        #self.selected = []
+
+        self.point_style = vector.FeatureStyle()
+        self.point_style.set_color('white', 0.5)
+        self.point_style.set_outline_color('red')
+        self.point_style.weight = 10
+
+        self.line_style = vector.FeatureStyle()
+        self.line_style.set_color('yellow')
+        #self.line_style.set_outline_color('red')
+
+
+
+        #self.signal_new("map-features-selected", self, GObject.SIGNAL_RUN_FIRST, None, (object,))
+
+    def activate(self, parent):
+        ## Set parent object
+        self.parent = parent
+        ## Setup connection, keeping the reference to each in connection_list
+        self.connection_list.append( self.parent.connect("left-click", self.add_click) )
+        self.connection_list.append( self.parent.connect("middle-click", self.clear_clicks) )
+
+    def deactivate(self):
+        ## Reset tool vars
+        self.select_box_active = False
+        self.selected = []
+        ## Disconnect all connection
+        for connect_id in self.connection_list:
+            self.parent.disconnect(connect_id)
+        
+        ## Clear Connection list
+        self.connection_list = []
+
+        self.p1 = None
+        self.p2 = None
+
+        ## Remove parent
+        self.parent = None
+    
+
+    
+
+    def add_click(self, caller, pix_x, pix_y):
+        if self.p1:
+            #pix_x = self.parent.width - pix_x
+            pix_y = self.parent.height - pix_y
+            self.p2 = self.parent.pix2geo(pix_x, pix_y)
+            
+            deg2m = 110570
+            x1 = self.p1[0] * deg2m
+            y1 = self.p1[1] * deg2m
+            x2 = self.p2[0] * deg2m
+            y2 = self.p2[1] * deg2m
+
+            d = (((x1-x2)**2)+((y1-y2)**2))**0.5
+
+            print(d) #!! THIS IS NOT CORRECT!!
+
+        else:
+            #pix_x = self.parent.width - pix_x
+            pix_y = self.parent.height - pix_y
+            self.p1 = self.parent.pix2geo(pix_x, pix_y)
+
+
+    
+    def clear_clicks(self, caller, *args):
+        self.p1 = None
+        self.p2 = None
+    
+    def draw(self, cr):
+        print('drawing')
+        if self.p1:
+            ## Draw first click point
+            pix1_x, pix1_y = self.parent.geo2pix(*self.p1)
+            self.parent.renderer.draw_point(cr, [1], [pix1_x], [pix1_y], self.point_style)
+        
+        if self.p2:
+            ## Draw second click point
+            pix2_x, pix2_y = self.parent.geo2pix(*self.p2)
+            self.parent.renderer.draw_point(cr, [1], [pix2_x], [pix2_y], self.point_style)
+
+            ## Draw line between points
+            pixs_x = [pix1_x, pix2_x]
+            pixs_y = [pix1_y, pix2_y]
+            self.parent.renderer.draw_line(cr, [2], pixs_x, pixs_y, self.line_style)
+
+
+
 
 ##############################
 ## Structure classes
@@ -460,6 +559,14 @@ class ToolBar(Gtk.Toolbar):
         self.map_tool_button.connect('toggled', self.map_tool_button_toggled)
         self.insert(self.map_tool_button, 2)
 
+        ## Setup measure  tool & button
+        self.measure_tool = MeasureTool()
+        self.measure_tool_button = Gtk.ToggleToolButton()
+        self.measure_tool_button.set_icon_name('screenruler')
+        self.measure_tool_button.set_tooltip_text("Measure distance")
+        self.measure_tool_button.connect('toggled', self.measure_tool_button_toggled)
+        self.insert(self.measure_tool_button, 3)
+
 
     def select_tool_button_toggled(self, caller):
         if self.select_tool_button.get_active():
@@ -480,6 +587,13 @@ class ToolBar(Gtk.Toolbar):
             self.map.add_tool(self.tile_map_tool)
         else:
             self.map.remove_tool(self.tile_map_tool)
+
+    def measure_tool_button_toggled(self, caller):
+        if self.measure_tool_button.get_active():
+            self.map.add_tool(self.measure_tool)
+        else:
+            self.map.remove_tool(self.measure_tool)
+
 
 class StatusBar(Gtk.HBox):
     def __init__(self, window, parent_map):
