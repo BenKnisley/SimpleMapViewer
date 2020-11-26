@@ -387,7 +387,7 @@ class TileLayerTool(GObject.GObject):
         self.parent = None
         self.connection_list = []
 
-        self.tile_layer = self.tile_layer = TileLayer('https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', False, "./tile_store")
+        self.tile_layer = self.tile_layer = TileLayer('https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', False)
         
         #self.signal_new("map-features-selected", self, GObject.SIGNAL_RUN_FIRST, None, (object,))
 
@@ -417,7 +417,8 @@ class TileLayerTool(GObject.GObject):
         self.parent = None
     
     def draw(self, cr):
-        pass
+        self.parent.call_redraw(self)
+
 
 
 class MeasureTool(GObject.GObject):
@@ -452,6 +453,7 @@ class MeasureTool(GObject.GObject):
         ## Setup connection, keeping the reference to each in connection_list
         self.connection_list.append( self.parent.connect("left-click", self.add_click) )
         self.connection_list.append( self.parent.connect("middle-click", self.clear_clicks) )
+        self.parent.call_redraw(self)
 
     def deactivate(self):
         ## Reset tool vars
@@ -467,12 +469,11 @@ class MeasureTool(GObject.GObject):
         self.p1 = None
         self.p2 = None
 
+        self.parent.call_redraw(self)
+
         ## Remove parent
         self.parent = None
     
-
-    
-
     def add_click(self, caller, pix_x, pix_y):
         if self.p1:
             #pix_x = self.parent.width - pix_x
@@ -494,11 +495,12 @@ class MeasureTool(GObject.GObject):
             pix_y = self.parent.height - pix_y
             self.p1 = self.parent.pix2geo(pix_x, pix_y)
 
+        self.parent.call_redraw(self)
 
-    
     def clear_clicks(self, caller, *args):
         self.p1 = None
         self.p2 = None
+        self.parent.call_redraw(self)
     
     def draw(self, cr):
         print('drawing')
