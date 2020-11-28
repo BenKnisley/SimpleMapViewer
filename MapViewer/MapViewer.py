@@ -31,7 +31,6 @@ from PyMapKit import vector
 from .LayerViewWidget import LayerView
 
 
-
 ##############################
 ## Tool Classes
 ##############################
@@ -175,7 +174,6 @@ class SelectTool(GObject.GObject):
                 self.parent.renderer.draw_line(cr, f.geometry.structure, x_values, y_values, self.selected_style)
             else: #f.geometry_type == 'polygon':
                 self.parent.renderer.draw_polygon(cr, f.geometry.structure, x_values, y_values, self.selected_style)
-
 
 class IdentifyTool(GObject.GObject):
     __gsignals__ = {
@@ -376,7 +374,6 @@ class IdentifyDisplay(Gtk.Frame):
 
             self.layout.show_all()
 
-
 class TileLayerTool(GObject.GObject):
     __gsignals__ = {
     #"features-selected": (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (object,)),
@@ -418,8 +415,6 @@ class TileLayerTool(GObject.GObject):
     
     def draw(self, cr):
         self.parent.call_redraw(self)
-
-
 
 class MeasureTool(GObject.GObject):
     __gsignals__ = {}
@@ -520,8 +515,6 @@ class MeasureTool(GObject.GObject):
             self.parent.renderer.draw_line(cr, [2], pixs_x, pixs_y, self.line_style)
 
 
-
-
 ##############################
 ## Structure classes
 ##############################
@@ -569,7 +562,6 @@ class ToolBar(Gtk.Toolbar):
         self.measure_tool_button.connect('toggled', self.measure_tool_button_toggled)
         self.insert(self.measure_tool_button, 3)
 
-
     def select_tool_button_toggled(self, caller):
         if self.select_tool_button.get_active():
             self.map.add_tool(self.select_tool)
@@ -595,7 +587,6 @@ class ToolBar(Gtk.Toolbar):
             self.map.add_tool(self.measure_tool)
         else:
             self.map.remove_tool(self.measure_tool)
-
 
 class StatusBar(Gtk.HBox):
     def __init__(self, window, parent_map):
@@ -637,7 +628,7 @@ class StatusBar(Gtk.HBox):
         self.location_tracker.set_text(f"{round(geoy, 4)}, {round(geox, 4)}")
 
 class MainWindow(Gtk.Window):
-    """ The main application window """
+    """ A class building up the main window of the application """
     def __init__(self):
         """ Defines window properties, & adds child widgets. """
         ## Initialize parents: Gtk.Window & Gtk.GObject
@@ -645,7 +636,7 @@ class MainWindow(Gtk.Window):
         GObject.GObject.__init__(self)
 
         ## Set window properties
-        self.set_title("MapViewer")
+        self.set_title("Map Viewer")
         self.resize(1700, 900)
         self.set_border_width(0)
 
@@ -653,10 +644,8 @@ class MainWindow(Gtk.Window):
         self.connect('drag_data_received', self.on_drag_data_received)
         self.drag_dest_set( Gtk.DestDefaults.MOTION | Gtk.DestDefaults.HIGHLIGHT | Gtk.DestDefaults.DROP, [Gtk.TargetEntry.new("text/uri-list", 0, 80)], Gdk.DragAction.COPY)
         
-        ## Setup MapCanvas Widget
+        ## Setup MapCanvas Widget & LayerView Widget
         self.map = MapCanvasGTK.MapCanvas()
-
-        ## Setup LayerView Widget
         layer_view = LayerView(self.map)
 
         ## Connect map signals
@@ -709,7 +698,6 @@ class MainWindow(Gtk.Window):
         self.statusbar = StatusBar(self, self.map)
         map_area.pack_start(self.statusbar, False, False, 0)
 
-
     def add_from_path(self, path):
         """ """
         file_extension = path.split(".")[-1]
@@ -760,6 +748,9 @@ class MainWindow(Gtk.Window):
             self.add_from_path(path)
             self.map.call_redraw(self)
 
+##############################
+## Application classes & Functions
+##############################
 
 class MapViewerApplication(Gtk.Application):
     """ The root GTK object for the application. Opens MainWindow. """
@@ -780,11 +771,6 @@ class MapViewerApplication(Gtk.Application):
         self.window.show_all()
         self.add_window(self.window)
 
-
-##############################
-## ././. classes
-##############################
-
 def main():
     """ Main function exists to allow for multiple entry points (namely setup.py's console_scripts)"""
     ## Create MapViewerApplication instance
@@ -799,8 +785,7 @@ def main():
     ## Run Applications
     app.run()
 
-## If file run directly, call main functions
+## If file run directly, call main function
 if __name__ == "__main__":
-    ## Enable mutithreading
     main()
 
