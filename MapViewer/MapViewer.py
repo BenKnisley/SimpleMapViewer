@@ -323,6 +323,12 @@ class IdentifyTool(GObject.GObject):
             cr.set_line_width(3)
             cr.stroke()
 
+        ## If layer is deleted, selected features can cause issues
+        if len(self.selected) and not self.selected[0].parent.parent:
+            self.selected = []
+            return
+
+
         for f in self.selected:
             x_values, y_values = f.parent.parent.proj2pix(*f.geometry.get_points())
 
@@ -453,7 +459,7 @@ class MeasureTool(GObject.GObject):
         ## Setup connection, keeping the reference to each in connection_list
         self.connection_list.append( self.parent.connect("left-click", self.add_click) )
         self.connection_list.append( self.parent.connect("middle-click", self.clear_clicks) )
-        self.parent.call_redraw(self)
+        #self.parent.call_redraw(self)
 
     def deactivate(self):
         ## Reset tool vars
@@ -503,7 +509,6 @@ class MeasureTool(GObject.GObject):
         self.parent.call_redraw(self)
     
     def draw(self, cr):
-        print('drawing')
         if self.p1:
             ## Draw first click point
             pix1_x, pix1_y = self.parent.geo2pix(*self.p1)
